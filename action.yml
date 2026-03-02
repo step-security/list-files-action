@@ -31,7 +31,7 @@ runs:
       with:
         script: |
           const repoPrivate = context?.payload?.repository?.private;
-          const upstream = 'gitleaks/gitleaks-action';
+          const upstream = 'mirko-felice/list-files-action';
           const action = process.env.GITHUB_ACTION_REPOSITORY;
           const docsUrl = 'https://docs.stepsecurity.io/actions/stepsecurity-maintained-actions';
 
