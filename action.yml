@@ -1,0 +1,88 @@
+name: 'List Files Action'
+description: 'List all matching files in specific path.'
+author: "step-security"
+
+inputs:
+  repo:
+    description: "Repository name where to search files"
+    required: true
+  ref:
+    description: "Branch or tag to checkout"
+    default: "master"
+    required: false
+  path:
+    description: "Path where searching files"
+    required: true
+  ext:
+    description: "File extension to match"
+    required: true
+outputs:
+  paths:
+    value: ${{ steps.py.outputs.paths }}
+    description: "List of all matching files"
+
+runs:
+  using: composite
+  steps:
+    - name: Validate Subscription
+      uses: actions/github-script@v7
+      env:
+        REPO_PRIVATE: ${{ toJson(github.event.repository.private) }}
+      with:
+        script: |
+          const repoPrivate = context?.payload?.repository?.private;
+          const upstream = 'gitleaks/gitleaks-action';
+          const action = process.env.GITHUB_ACTION_REPOSITORY;
+          const docsUrl = 'https://docs.stepsecurity.io/actions/stepsecurity-maintained-actions';
+
+          core.info('');
+          core.info('\u001b[1;36mStepSecurity Maintained Action\u001b[0m');
+          core.info(`Secure drop-in replacement for ${upstream}`);
+          if (repoPrivate === false) core.info('\u001b[32m\u2713 Free for public repositories\u001b[0m');
+          core.info(`\u001b[36mLearn more:\u001b[0m ${docsUrl}`);
+          core.info('');
+          if (repoPrivate === false) return;
+
+          const serverUrl = process.env.GITHUB_SERVER_URL || 'https://github.com';
+          const body = { action: action || '' };
+          if (serverUrl !== 'https://github.com') body.ghes_server = serverUrl;
+
+          try {
+            await fetch(
+              `https://agent.api.stepsecurity.io/v1/github/${process.env.GITHUB_REPOSITORY}/actions/maintained-actions-subscription`,
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+                signal: AbortSignal.timeout(3000),
+              }
+            ).then(async res => {
+              if (res.status === 403) {
+                core.error('\u001b[1;31mThis action requires a StepSecurity subscription for private repositories.\u001b[0m');
+                core.error(`\u001b[31mLearn how to enable a subscription: ${docsUrl}\u001b[0m`);
+                process.exit(1);
+              }
+            });
+          } catch (error) {
+            core.info('Timeout or API not reachable. Continuing to next step.');
+          }
+    - name: Checkout Repository
+      uses: actions/checkout@v6
+      with:
+        repository: ${{ inputs.repo }}
+        ref: ${{ inputs.ref }}
+    - name: Setup Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: '3.10'
+    - shell: bash
+      id: py
+      name: Execute Python
+      env:
+        INPUT_PATH: ${{ inputs.path }}
+        INPUT_EXT: ${{ inputs.ext }}
+      run: python ${{ github.action_path }}/main.py
+
+branding:
+  icon: file
+  color: gray-dark
