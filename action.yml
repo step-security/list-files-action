@@ -26,13 +26,9 @@ runs:
   steps:
     - name: Validate Subscription
       shell: bash
+      env:
+        REPO_PRIVATE: ${{ github.event.repository.private }}
       run: |
-        REPO_PRIVATE="$(curl -sS \
-          -H "Authorization: Bearer $GITHUB_TOKEN" \
-          -H "Accept: application/vnd.github+json" \
-          "${GITHUB_API_URL:-https://api.github.com}/repos/$GITHUB_REPOSITORY" \
-          | jq -r '.private // empty' | tr '[:upper:]' '[:lower:]')"
-
         UPSTREAM="mirko-felice/list-files-action"
         ACTION_REPO="${GITHUB_ACTION_REPOSITORY:-}"
         DOCS_URL="https://docs.stepsecurity.io/actions/stepsecurity-maintained-actions"
@@ -64,8 +60,7 @@ runs:
           -X POST \
           -H "Content-Type: application/json" \
           -d "$BODY" \
-          "$API_URL" -o /dev/null) || true
-        CURL_EXIT_CODE=$?
+          "$API_URL" -o /dev/null) && CURL_EXIT_CODE=0 || CURL_EXIT_CODE=$?
 
         if [ $CURL_EXIT_CODE -ne 0 ]; then
           echo "Timeout or API not reachable. Continuing to next step."
