@@ -2,12 +2,8 @@ name: Test
 
 on:
   push:
-    tags-ignore:
-      - '*'
     branches:
       - 'main'
-    paths-ignore:
-      - 'CHANGELOG.md'
   pull_request:
   workflow_dispatch:
 
