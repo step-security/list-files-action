@@ -25,47 +25,51 @@ runs:
   using: composite
   steps:
     - name: Validate Subscription
-      uses: actions/github-script@v7
-      env:
-        REPO_PRIVATE: ${{ toJson(github.event.repository.private) }}
-      with:
-        script: |
-          const repoPrivate = context?.payload?.repository?.private;
-          const upstream = 'mirko-felice/list-files-action';
-          const action = process.env.GITHUB_ACTION_REPOSITORY;
-          const docsUrl = 'https://docs.stepsecurity.io/actions/stepsecurity-maintained-actions';
+      shell: bash
+      run: |
+        REPO_PRIVATE="${GITHUB_REPOSITORY_PRIVATE:-}"
+        UPSTREAM="mirko-felice/list-files-action"
+        ACTION_REPO="${GITHUB_ACTION_REPOSITORY:-}"
+        DOCS_URL="https://docs.stepsecurity.io/actions/stepsecurity-maintained-actions"
 
-          core.info('');
-          core.info('\u001b[1;36mStepSecurity Maintained Action\u001b[0m');
-          core.info(`Secure drop-in replacement for ${upstream}`);
-          if (repoPrivate === false) core.info('\u001b[32m\u2713 Free for public repositories\u001b[0m');
-          core.info(`\u001b[36mLearn more:\u001b[0m ${docsUrl}`);
-          core.info('');
-          if (repoPrivate === false) return;
+        echo ""
+        echo -e "\033[1;36mStepSecurity Maintained Action\033[0m"
+        echo "Secure drop-in replacement for $UPSTREAM"
+        if [ "$REPO_PRIVATE" = "false" ]; then
+          echo -e "\033[32m✓ Free for public repositories\033[0m"
+        fi
+        echo -e "\033[36mLearn more:\033[0m $DOCS_URL"
+        echo ""
 
-          const serverUrl = process.env.GITHUB_SERVER_URL || 'https://github.com';
-          const body = { action: action || '' };
-          if (serverUrl !== 'https://github.com') body.ghes_server = serverUrl;
+        if [ "$REPO_PRIVATE" = "false" ]; then
+          exit 0
+        fi
 
-          try {
-            await fetch(
-              `https://agent.api.stepsecurity.io/v1/github/${process.env.GITHUB_REPOSITORY}/actions/maintained-actions-subscription`,
-              {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body),
-                signal: AbortSignal.timeout(3000),
-              }
-            ).then(async res => {
-              if (res.status === 403) {
-                core.error('\u001b[1;31mThis action requires a StepSecurity subscription for private repositories.\u001b[0m');
-                core.error(`\u001b[31mLearn how to enable a subscription: ${docsUrl}\u001b[0m`);
-                process.exit(1);
-              }
-            });
-          } catch (error) {
-            core.info('Timeout or API not reachable. Continuing to next step.');
-          }
+        SERVER_URL="${GITHUB_SERVER_URL:-https://github.com}"
+
+        if [ "$SERVER_URL" != "https://github.com" ]; then
+          BODY=$(printf '{"action":"%s","ghes_server":"%s"}' "$ACTION_REPO" "$SERVER_URL")
+        else
+          BODY=$(printf '{"action":"%s"}' "$ACTION_REPO")
+        fi
+
+        API_URL="https://agent.api.stepsecurity.io/v1/github/$GITHUB_REPOSITORY/actions/maintained-actions-subscription"
+
+        RESPONSE=$(curl --max-time 3 -s -w "%{http_code}" \
+          -X POST \
+          -H "Content-Type: application/json" \
+          -d "$BODY" \
+          "$API_URL" -o /dev/null) || true
+        CURL_EXIT_CODE=$?
+
+        if [ $CURL_EXIT_CODE -ne 0 ]; then
+          echo "Timeout or API not reachable. Continuing to next step."
+        elif [ "$RESPONSE" = "403" ]; then
+          echo -e "\033[1;31mThis action requires a StepSecurity subscription for private repositories.\033[0m"
+          echo -e "\033[31mLearn how to enable a subscription: $DOCS_URL\033[0m"
+          exit 1
+        fi
+
     - name: Checkout Repository
       uses: actions/checkout@v6
       with:

@@ -67,8 +67,11 @@ jobs:
 Output generated for the above yaml file (in this repository):
 
 ```shell
-github/workflows/test.yml
-action.yml
+./action.yml
+./.github/workflows/claude_review.yml
+./.github/workflows/actions_release.yml 
+./.github/workflows/auto_cherry_pick.yml
+./.github/workflows/test.yml
 ```
 
 ## License
